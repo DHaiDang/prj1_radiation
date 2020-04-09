@@ -1,27 +1,3 @@
-/****************************************************************************
- Title	:   HD44780U LCD library
- Author:    Peter Fleury <pfleury@gmx.ch>  http://jump.to/fleury
- File:	    $Id: lcd.c,v 1.14.2.1 2006/01/29 12:16:41 peter Exp $
- Software:  AVR-GCC 3.3 
- Target:    any AVR device, memory mapped mode only for AT90S4414/8515/Mega
-
- DESCRIPTION
-       Basic routines for interfacing a HD44780U-based text lcd display
-
-       Originally based on Volker Oth's lcd library,
-       changed lcd_init(), added additional constants for lcd_command(),
-       added 4-bit I/O mode, improved and optimized code.
-
-       Library can be operated in memory mapped mode (LCD_IO_MODE=0) or in 
-       4-bit IO port mode (LCD_IO_MODE=1). 8-bit IO port mode not supported.
-       
-       Memory mapped mode compatible with Kanda STK200, but supports also
-       generation of R/W signal through A8 address line.
-
- USAGE
-       See the C include lcd.h file for a description of each function
-       
-*****************************************************************************/
 #include <inttypes.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -29,15 +5,12 @@
 
 
 
-/* 
-** constants/macros 
-*/
-#define DDR(x) (*(&x - 1))      /* address of data direction register of port x */
+
+#define DDR(x) (*(&x - 1))     
 #if defined(__AVR_ATmega64__) || defined(__AVR_ATmega128__)
-    /* on ATmega64/128 PINF is on port 0x00 and not 0x60 */
     #define PIN(x) ( &PORTF==&(x) ? _SFR_IO8(0x00) : (*(&x - 2)) )
 #else
-	#define PIN(x) (*(&x - 2))    /* address of input register of port x          */
+	#define PIN(x) (*(&x - 2))  
 #endif
 
 
@@ -69,47 +42,30 @@
 #if LCD_CONTROLLER_KS0073
 #if LCD_LINES==4
 
-#define KS0073_EXTENDED_FUNCTION_REGISTER_ON  0x24   /* |0|010|0100 4-bit mode extension-bit RE = 1 */
-#define KS0073_EXTENDED_FUNCTION_REGISTER_OFF 0x20   /* |0|000|1001 4 lines mode */
-#define KS0073_4LINES_MODE                    0x09   /* |0|001|0000 4-bit mode, extension-bit RE = 0 */
+#define KS0073_EXTENDED_FUNCTION_REGISTER_ON  0x24  
+#define KS0073_EXTENDED_FUNCTION_REGISTER_OFF 0x20  
+#define KS0073_4LINES_MODE                    0x09  
 
 #endif
 #endif
 
-/* 
-** function prototypes 
-*/
 #if LCD_IO_MODE
 static void toggle_e(void);
 #endif
 
-/*
-** local functions
-*/
-
-
-
-/*************************************************************************
- delay loop for small accurate delays: 16-bit counter, 4 cycles/loop
-*************************************************************************/
 static inline void _delayFourCycles(unsigned int __count)
 {
     if ( __count == 0 )    
-        __asm__ __volatile__( "rjmp 1f\n 1:" );    // 2 cycles
+        __asm__ __volatile__( "rjmp 1f\n 1:" );  
     else
         __asm__ __volatile__ (
     	    "1: sbiw %0,1" "\n\t"                  
-    	    "brne 1b"                              // 4 cycles/loop
+    	    "brne 1b"                              
     	    : "=w" (__count)
     	    : "0" (__count)
     	   );
 }
 
-
-/************************************************************************* 
-delay for a minimum of <us> microseconds
-the number of loops is calculated at compile-time from MCU clock frequency
-*************************************************************************/
 #define delay(us)  _delayFourCycles( ( ( 1*(XTAL/4000) )*us)/1000 )
 
 
@@ -123,14 +79,6 @@ static void toggle_e(void)
 }
 #endif
 
-
-/*************************************************************************
-Low-level function to write byte to LCD controller
-Input:    data   byte to write to LCD
-          rs     1: write data    
-                 0: write instruction
-Returns:  none
-*************************************************************************/
 #if LCD_IO_MODE
 static void lcd_write(uint8_t data,uint8_t rs) 
 {
@@ -201,18 +149,9 @@ static void lcd_write(uint8_t data,uint8_t rs)
 }
 #else
 #define lcd_write(d,rs) if (rs) *(volatile uint8_t*)(LCD_IO_DATA) = d; else *(volatile uint8_t*)(LCD_IO_FUNCTION) = d;
-/* rs==0 -> write instruction to LCD_IO_FUNCTION */
-/* rs==1 -> write data to LCD_IO_DATA */
 #endif
 
 
-/*************************************************************************
-Low-level function to read byte from LCD controller
-Input:    rs     1: read data    
-                 0: read busy flag / address counter
-Returns:  byte read from LCD controller
-*************************************************************************/
-#if LCD_IO_MODE
 static uint8_t lcd_read(uint8_t rs) 
 {
     uint8_t data;
